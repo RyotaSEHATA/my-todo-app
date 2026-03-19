@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Keep風 Todo</title>
+  <meta name="theme-color" content="#10141f" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-logo">✓</div>
+        <div class="brand-text">
+          <h1>Todo Notes</h1>
+          <p>Keep風に、軽く素早く管理</p>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button id="themeToggle" class="icon-btn" type="button" aria-label="テーマ切替">
+          <span class="icon icon-moon"></span>
+        </button>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="composer-wrap">
+        <form id="todoForm" class="composer">
+          <div class="composer-main">
+            <input
+              id="titleInput"
+              class="composer-title"
+              type="text"
+              maxlength="60"
+              placeholder="やることを追加"
+              required
+            />
+            <textarea
+              id="bodyInput"
+              class="composer-body"
+              rows="1"
+              maxlength="300"
+              placeholder="メモを書けます"
+            ></textarea>
+          </div>
+
+          <div class="composer-controls">
+            <div class="color-picker" id="colorPicker">
+              <button type="button" class="color-dot selected" data-color="slate" aria-label="slate"></button>
+              <button type="button" class="color-dot color-yellow" data-color="yellow" aria-label="yellow"></button>
+              <button type="button" class="color-dot color-green" data-color="green" aria-label="green"></button>
+              <button type="button" class="color-dot color-blue" data-color="blue" aria-label="blue"></button>
+              <button type="button" class="color-dot color-pink" data-color="pink" aria-label="pink"></button>
+              <button type="button" class="color-dot color-purple" data-color="purple" aria-label="purple"></button>
+            </div>
+
+            <button id="addButton" class="primary-btn" type="submit">追加</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="toolbar">
+        <div class="search-box">
+          <span class="search-icon">⌕</span>
+          <input id="searchInput" type="text" placeholder="タイトルやメモを検索" />
+        </div>
+
+        <div class="filter-group" id="filterGroup">
+          <button class="filter-btn active" type="button" data-filter="all">すべて</button>
+          <button class="filter-btn" type="button" data-filter="active">未完了</button>
+          <button class="filter-btn" type="button" data-filter="done">完了</button>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat-card">
+          <span class="stat-label">合計</span>
+          <strong id="totalCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">未完了</span>
+          <strong id="activeCount">0</strong>
+        </div>
+        <div class="stat-card">
+          <span class="stat-label">完了</span>
+          <strong id="doneCount">0</strong>
+        </div>
+      </section>
+
+      <section>
+        <div id="emptyState" class="empty-state hidden">
+          <div class="empty-icon">🗂️</div>
+          <h2>Todoがありません</h2>
+          <p>上の入力欄から最初のタスクを追加してください。</p>
+        </div>
+
+        <div id="todoGrid" class="todo-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="editModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-modal="true"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2>Todoを編集</h2>
+        <button id="closeModalBtn" class="icon-btn" type="button" aria-label="閉じる">✕</button>
+      </div>
+
+      <form id="editForm" class="modal-form">
+        <input id="editId" type="hidden" />
+
+        <label class="field">
+          <span>タイトル</span>
+          <input id="editTitle" type="text" maxlength="60" required />
+        </label>
+
+        <label class="field">
+          <span>メモ</span>
+          <textarea id="editBody" rows="5" maxlength="300"></textarea>
+        </label>
+
+        <div class="field">
+          <span>色</span>
+          <div class="color-picker" id="editColorPicker">
+            <button type="button" class="color-dot" data-color="slate"></button>
+            <button type="button" class="color-dot color-yellow" data-color="yellow"></button>
+            <button type="button" class="color-dot color-green" data-color="green"></button>
+            <button type="button" class="color-dot color-blue" data-color="blue"></button>
+            <button type="button" class="color-dot color-pink" data-color="pink"></button>
+            <button type="button" class="color-dot color-purple" data-color="purple"></button>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button id="deleteFromModalBtn" class="danger-btn" type="button">削除</button>
+          <button class="primary-btn" type="submit">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
