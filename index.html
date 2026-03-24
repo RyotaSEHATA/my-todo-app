@@ -1,88 +1,237 @@
 <!DOCTYPE html>
 <html lang="ja">
-  <head>
-    <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
-    <title>Family Ops</title>
-    <meta name="theme-color" content="#0d1117" />
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app-shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">FAMILY OPS</p>
-          <h1 class="page-title">今日の処理ボード</h1>
-          <p class="subtitle">判断を減らして、機械的に片づける</p>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PathGlass - Activity Tracker</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --main-color: #007AFF;
+            --glass-bg: rgba(255, 255, 255, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.2);
+            --text-color: #1d1d1f;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* マップ背景 */
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            z-index: 1;
+        }
+
+        /* ガラスモーフィズムの基本スタイル */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px) saturate(180%);
+            -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            color: var(--text-color);
+            z-index: 10;
+        }
+
+        /* 上部ステータスバー */
+        .header {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .date-info h1 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .date-info p {
+            margin: 0;
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        /* 下部データパネル */
+        .bottom-card {
+            position: absolute;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            padding: 20px;
+            transition: transform 0.3s ease;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-value {
+            display: block;
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--main-color);
+        }
+
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.6;
+        }
+
+        /* アクションボタン */
+        .action-btn {
+            background: var(--main-color);
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            border-radius: 16px;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        /* ピン追加モーダル（簡易版） */
+        #comment-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            padding: 20px;
+            z-index: 100;
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 10px;
+            border: 1px solid var(--glass-border);
+            background: rgba(255, 255, 255, 0.5);
+            box-sizing: border-box;
+        }
+
+        /* Leafletカスタム調整 */
+        .leaflet-top.leaflet-left { top: 100px; left: 15px; }
+        .leaflet-control-zoom { border: none !important; border-radius: 12px !important; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="header glass-panel">
+        <div class="date-info">
+            <h1>今日の移動</h1>
+            <p>2026年3月24日 火曜日</p>
         </div>
-
-        <div class="status-grid">
-          <section class="status-card status-card-critical">
-            <span class="status-label">CRITICAL</span>
-            <strong id="criticalCount" class="status-value">0</strong>
-          </section>
-
-          <section class="status-card">
-            <span class="status-label">OPEN TODO</span>
-            <strong id="openTodoCount" class="status-value">0</strong>
-          </section>
-
-          <section class="status-card">
-            <span class="status-label">TODAY EVENTS</span>
-            <strong id="todayEventCount" class="status-value">0</strong>
-          </section>
-        </div>
-      </header>
-
-      <main class="dashboard">
-        <section class="panel panel-critical">
-          <div class="panel-header">
-            <h2 class="panel-title">CRITICAL</h2>
-            <span id="criticalBadge" class="panel-count">0</span>
-          </div>
-          <div id="criticalList" class="panel-body"></div>
-        </section>
-
-        <section class="panel panel-next">
-          <div class="panel-header">
-            <h2 class="panel-title">NEXT</h2>
-            <span id="nextBadge" class="panel-count">0</span>
-          </div>
-          <div id="nextList" class="panel-body"></div>
-        </section>
-
-        <section class="panel panel-later">
-          <div class="panel-header">
-            <h2 class="panel-title">LATER</h2>
-            <span id="laterBadge" class="panel-count">0</span>
-          </div>
-          <div id="laterList" class="panel-body"></div>
-        </section>
-
-        <section class="panel panel-event">
-          <div class="panel-header">
-            <h2 class="panel-title">TODAY EVENTS</h2>
-            <span id="eventsBadge" class="panel-count">0</span>
-          </div>
-          <div id="eventList" class="panel-body"></div>
-        </section>
-      </main>
+        <div style="color: var(--main-color); font-weight: bold;">LIVE</div>
     </div>
 
-    <div class="quick-bar">
-      <input
-        id="quickInput"
-        class="quick-input"
-        type="text"
-        placeholder="追加するTODOを入力"
-        autocomplete="off"
-      />
-      <button id="addButton" class="quick-button" type="button">追加</button>
+    <div class="bottom-card glass-panel">
+        <div class="stats-grid">
+            <div class="stat-item">
+                <span class="stat-value">5.2<small> km</small></span>
+                <span class="stat-label">移動距離</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-value">7,420</span>
+                <span class="stat-label">歩数</span>
+            </div>
+        </div>
+        <button class="action-btn" onclick="prepareAddPin()">
+            <span>📍</span> 現在地にメモを残す
+        </button>
     </div>
 
-    <script src="script.js"></script>
-  </body>
+    <div id="comment-modal" class="glass-panel">
+        <h3 style="margin-top:0">メモを保存</h3>
+        <input type="text" id="comment-input" placeholder="ここでの出来事は？">
+        <button class="action-btn" onclick="addPin()">保存する</button>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // マップの初期化
+        const map = L.map('map', {
+            zoomControl: true,
+            attributionControl: false
+        }).setView([35.6812, 139.7671], 15);
+
+        // Appleっぽい地図タイル（CartoDB Positron）
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        let tempLatLng = null;
+
+        // ダミーの移動ルートを描画
+        const path = [
+            [35.6812, 139.7671],
+            [35.6820, 139.7680],
+            [35.6835, 139.7660],
+            [35.6850, 139.7690]
+        ];
+        L.polyline(path, {
+            color: '#007AFF',
+            weight: 5,
+            opacity: 0.6,
+            lineCap: 'round'
+        }).addTo(map);
+
+        // ピン追加の準備
+        function prepareAddPin() {
+            // 本来は現在地を取得するが、ここでは地図の中心を使用
+            tempLatLng = map.getCenter();
+            document.getElementById('comment-modal').style.display = 'block';
+            document.getElementById('comment-input').focus();
+        }
+
+        // ピンの確定
+        function addPin() {
+            const comment = document.getElementById('comment-input').value;
+            if (comment && tempLatLng) {
+                const marker = L.marker(tempLatLng).addTo(map);
+                marker.bindPopup(`<b>メモ:</b><br>${comment}`).openPopup();
+                
+                // モーダルを閉じる
+                document.getElementById('comment-modal').style.display = 'none';
+                document.getElementById('comment-input').value = '';
+            }
+        }
+
+        // モーダル外タップで閉じる（簡易実装）
+        map.on('click', () => {
+            document.getElementById('comment-modal').style.display = 'none';
+        });
+    </script>
+</body>
 </html>
