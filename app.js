@@ -1,409 +1,338 @@
-const STORAGE_KEY = "keep_style_todos_v1";
-const THEME_KEY = "keep_style_theme_v1";
+const now = new Date("2026-03-20T08:30:00");
 
-const state = {
-  todos: [],
-  filter: "all",
-  search: "",
-  composerColor: "slate",
-  editColor: "slate",
+let todos = [
+  {
+    id: 1,
+    title: "見積レビューを返す",
+    description: "A社向け。午前中に差分確認。",
+    dueAt: "2026-03-20T10:00:00",
+    isDone: false,
+    doneAt: null,
+  },
+  {
+    id: 2,
+    title: "定例会の議事メモ整理",
+    description: "",
+    dueAt: "2026-03-20T18:00:00",
+    isDone: false,
+    doneAt: null,
+  },
+  {
+    id: 3,
+    title: "開発優先度の見直し",
+    description: "来週の着手順を仮決め。",
+    dueAt: "2026-03-21T12:00:00",
+    isDone: false,
+    doneAt: null,
+  },
+  {
+    id: 4,
+    title: "契約書ドラフト確認",
+    description: "",
+    dueAt: "2026-03-24T15:00:00",
+    isDone: false,
+    doneAt: null,
+  },
+  {
+    id: 5,
+    title: "旧案件の請求処理",
+    description: "すでに完了済み。",
+    dueAt: "2026-03-19T17:00:00",
+    isDone: true,
+    doneAt: "2026-03-19T16:30:00",
+  },
+];
+
+const events = [
+  {
+    id: 101,
+    title: "朝会",
+    startsAt: "2026-03-20T09:30:00",
+    endsAt: "2026-03-20T09:45:00",
+    location: "Google Meet",
+  },
+  {
+    id: 102,
+    title: "仕様レビュー",
+    startsAt: "2026-03-20T13:00:00",
+    endsAt: "2026-03-20T14:00:00",
+    location: "会議室A",
+  },
+  {
+    id: 103,
+    title: "1on1",
+    startsAt: "2026-03-20T17:30:00",
+    endsAt: "2026-03-20T18:00:00",
+    location: "",
+  },
+];
+
+const els = {
+  criticalCount: document.getElementById("criticalCount"),
+  openTodoCount: document.getElementById("openTodoCount"),
+  todayEventCount: document.getElementById("todayEventCount"),
+
+  criticalBadge: document.getElementById("criticalBadge"),
+  nextBadge: document.getElementById("nextBadge"),
+  laterBadge: document.getElementById("laterBadge"),
+  eventsBadge: document.getElementById("eventsBadge"),
+
+  criticalList: document.getElementById("criticalList"),
+  nextList: document.getElementById("nextList"),
+  laterList: document.getElementById("laterList"),
+  eventList: document.getElementById("eventList"),
+
+  quickInput: document.getElementById("quickInput"),
+  addButton: document.getElementById("addButton"),
 };
 
-const el = {
-  todoForm: document.getElementById("todoForm"),
-  titleInput: document.getElementById("titleInput"),
-  bodyInput: document.getElementById("bodyInput"),
-  colorPicker: document.getElementById("colorPicker"),
-  searchInput: document.getElementById("searchInput"),
-  filterGroup: document.getElementById("filterGroup"),
-  todoGrid: document.getElementById("todoGrid"),
-  emptyState: document.getElementById("emptyState"),
-  totalCount: document.getElementById("totalCount"),
-  activeCount: document.getElementById("activeCount"),
-  doneCount: document.getElementById("doneCount"),
-  themeToggle: document.getElementById("themeToggle"),
-  editModal: document.getElementById("editModal"),
-  closeModalBtn: document.getElementById("closeModalBtn"),
-  editForm: document.getElementById("editForm"),
-  editId: document.getElementById("editId"),
-  editTitle: document.getElementById("editTitle"),
-  editBody: document.getElementById("editBody"),
-  editColorPicker: document.getElementById("editColorPicker"),
-  deleteFromModalBtn: document.getElementById("deleteFromModalBtn"),
-  toastContainer: document.getElementById("toastContainer"),
-};
-
-function init() {
-  loadTodos();
-  loadTheme();
-  bindEvents();
-  render();
-  autoResizeTextarea(el.bodyInput);
-  autoResizeTextarea(el.editBody);
+function pad2(value) {
+  return String(value).padStart(2, "0");
 }
 
-function bindEvents() {
-  el.todoForm.addEventListener("submit", onAddTodo);
-  el.searchInput.addEventListener("input", (e) => {
-    state.search = e.target.value.trim().toLowerCase();
-    render();
-  });
-
-  el.filterGroup.addEventListener("click", (e) => {
-    const btn = e.target.closest(".filter-btn");
-    if (!btn) return;
-    state.filter = btn.dataset.filter;
-    [...el.filterGroup.querySelectorAll(".filter-btn")].forEach((b) => {
-      b.classList.toggle("active", b === btn);
-    });
-    render();
-  });
-
-  el.colorPicker.addEventListener("click", (e) => {
-    const btn = e.target.closest(".color-dot");
-    if (!btn) return;
-    state.composerColor = btn.dataset.color;
-    updateColorSelection(el.colorPicker, state.composerColor);
-  });
-
-  el.editColorPicker.addEventListener("click", (e) => {
-    const btn = e.target.closest(".color-dot");
-    if (!btn) return;
-    state.editColor = btn.dataset.color;
-    updateColorSelection(el.editColorPicker, state.editColor);
-  });
-
-  el.todoGrid.addEventListener("click", onGridClick);
-
-  el.themeToggle.addEventListener("click", toggleTheme);
-
-  el.closeModalBtn.addEventListener("click", closeModal);
-  el.editModal.addEventListener("click", (e) => {
-    if (e.target.dataset.closeModal === "true") closeModal();
-  });
-
-  el.editForm.addEventListener("submit", onSaveEdit);
-  el.deleteFromModalBtn.addEventListener("click", onDeleteFromModal);
-
-  el.bodyInput.addEventListener("input", () => autoResizeTextarea(el.bodyInput));
-  el.editBody.addEventListener("input", () => autoResizeTextarea(el.editBody));
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !el.editModal.classList.contains("hidden")) {
-      closeModal();
-    }
-  });
+function formatDateTimeLocal(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
+    date.getDate()
+  )}T${pad2(date.getHours())}:${pad2(date.getMinutes())}:00`;
 }
 
-function onAddTodo(e) {
-  e.preventDefault();
-
-  const title = el.titleInput.value.trim();
-  const body = el.bodyInput.value.trim();
-
-  if (!title) return;
-
-  const todo = {
-    id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-    title,
-    body,
-    color: state.composerColor,
-    done: false,
-    pinned: false,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  };
-
-  state.todos.unshift(todo);
-  persistTodos();
-  render();
-
-  el.todoForm.reset();
-  state.composerColor = "slate";
-  updateColorSelection(el.colorPicker, state.composerColor);
-  autoResizeTextarea(el.bodyInput);
-
-  showToast("Todoを追加しました");
+function formatTime(value) {
+  const date = new Date(value);
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}`;
 }
 
-function onGridClick(e) {
-  const button = e.target.closest("[data-action]");
-  if (!button) return;
+function formatDueLabel(value) {
+  const date = new Date(value);
+  return `${date.getMonth() + 1}/${date.getDate()} ${pad2(
+    date.getHours()
+  )}:${pad2(date.getMinutes())}`;
+}
 
-  const card = e.target.closest(".todo-card");
-  if (!card) return;
+function isSameDay(a, b) {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
 
-  const id = card.dataset.id;
-  const action = button.dataset.action;
+function classifyTodo(todo, 기준Date) {
+  if (todo.isDone) return "done";
 
-  if (action === "toggle-done") {
-    toggleDone(id);
-  } else if (action === "toggle-pin") {
-    togglePin(id);
-  } else if (action === "edit") {
-    openEditModal(id);
-  } else if (action === "delete") {
-    deleteTodo(id);
+  const due = new Date(todo.dueAt);
+  const diffMs = due.getTime() - 기준Date.getTime();
+  const diffDays = diffMs / (1000 * 60 * 60 * 24);
+
+  if (diffMs < 0 || isSameDay(due, 기준Date)) return "critical";
+  if (diffDays <= 3) return "next";
+  return "later";
+}
+
+function buildEmpty(text) {
+  const p = document.createElement("p");
+  p.className = "empty-text";
+  p.textContent = text;
+  return p;
+}
+
+function createTodoCard(todo) {
+  const card = document.createElement("article");
+  card.className = `item-card ${todo.isDone ? "item-card-done" : ""}`;
+
+  const button = document.createElement("button");
+  button.className = `check-button ${todo.isDone ? "check-button-done" : ""}`;
+  button.type = "button";
+  button.setAttribute("aria-label", todo.isDone ? "未完了に戻す" : "完了にする");
+  button.textContent = todo.isDone ? "✓" : "";
+  button.addEventListener("click", () => toggleDone(todo.id));
+
+  const main = document.createElement("div");
+  main.className = "item-main";
+
+  const top = document.createElement("div");
+  top.className = "item-top";
+
+  const title = document.createElement("h3");
+  title.className = "item-title";
+  title.textContent = todo.title;
+
+  const meta = document.createElement("span");
+  meta.className = "item-meta";
+  meta.textContent = formatDueLabel(todo.dueAt);
+
+  top.appendChild(title);
+  top.appendChild(meta);
+  main.appendChild(top);
+
+  if (todo.description) {
+    const desc = document.createElement("p");
+    desc.className = "item-desc";
+    desc.textContent = todo.description;
+    main.appendChild(desc);
   }
+
+  card.appendChild(button);
+  card.appendChild(main);
+
+  return card;
+}
+
+function createEventCard(event) {
+  const card = document.createElement("article");
+  card.className = "item-card item-card-event";
+
+  const timeBadge = document.createElement("div");
+  timeBadge.className = "time-badge";
+
+  const start = document.createElement("span");
+  start.textContent = formatTime(event.startsAt);
+
+  const divider = document.createElement("span");
+  divider.className = "time-divider";
+  divider.textContent = "-";
+
+  const end = document.createElement("span");
+  end.textContent = formatTime(event.endsAt);
+
+  timeBadge.appendChild(start);
+  timeBadge.appendChild(divider);
+  timeBadge.appendChild(end);
+
+  const main = document.createElement("div");
+  main.className = "item-main";
+
+  const top = document.createElement("div");
+  top.className = "item-top";
+
+  const title = document.createElement("h3");
+  title.className = "item-title";
+  title.textContent = event.title;
+
+  top.appendChild(title);
+
+  if (event.location) {
+    const meta = document.createElement("span");
+    meta.className = "item-meta";
+    meta.textContent = event.location;
+    top.appendChild(meta);
+  }
+
+  main.appendChild(top);
+  card.appendChild(timeBadge);
+  card.appendChild(main);
+
+  return card;
 }
 
 function toggleDone(id) {
-  const todo = state.todos.find((t) => t.id === id);
-  if (!todo) return;
+  todos = todos.map((todo) => {
+    if (todo.id !== id) return todo;
 
-  todo.done = !todo.done;
-  todo.updatedAt = Date.now();
+    const nextDone = !todo.isDone;
+    return {
+      ...todo,
+      isDone: nextDone,
+      doneAt: nextDone ? new Date().toISOString() : null,
+    };
+  });
 
-  persistTodos();
   render();
-  showToast(todo.done ? "完了にしました" : "未完了に戻しました");
 }
 
-function togglePin(id) {
-  const todo = state.todos.find((t) => t.id === id);
-  if (!todo) return;
+function addQuickTodo() {
+  const title = els.quickInput.value.trim();
+  if (!title) return;
 
-  todo.pinned = !todo.pinned;
-  todo.updatedAt = Date.now();
+  const due = new Date(now);
+  due.setHours(18, 0, 0, 0);
 
-  persistTodos();
+  const newTodo = {
+    id: Date.now(),
+    title,
+    description: "",
+    dueAt: formatDateTimeLocal(due),
+    isDone: false,
+    doneAt: null,
+  };
+
+  todos.unshift(newTodo);
+  els.quickInput.value = "";
   render();
-  showToast(todo.pinned ? "ピン留めしました" : "ピン留めを外しました");
 }
 
-function deleteTodo(id) {
-  state.todos = state.todos.filter((t) => t.id !== id);
-  persistTodos();
-  render();
-  showToast("Todoを削除しました");
-}
+function renderTodoSection(target, list, emptyText) {
+  target.innerHTML = "";
 
-function openEditModal(id) {
-  const todo = state.todos.find((t) => t.id === id);
-  if (!todo) return;
-
-  el.editId.value = todo.id;
-  el.editTitle.value = todo.title;
-  el.editBody.value = todo.body;
-  state.editColor = todo.color;
-
-  updateColorSelection(el.editColorPicker, state.editColor);
-  autoResizeTextarea(el.editBody);
-
-  el.editModal.classList.remove("hidden");
-  el.editModal.setAttribute("aria-hidden", "false");
-}
-
-function closeModal() {
-  el.editModal.classList.add("hidden");
-  el.editModal.setAttribute("aria-hidden", "true");
-  el.editForm.reset();
-}
-
-function onSaveEdit(e) {
-  e.preventDefault();
-
-  const id = el.editId.value;
-  const todo = state.todos.find((t) => t.id === id);
-  if (!todo) return;
-
-  todo.title = el.editTitle.value.trim();
-  todo.body = el.editBody.value.trim();
-  todo.color = state.editColor;
-  todo.updatedAt = Date.now();
-
-  if (!todo.title) {
-    showToast("タイトルを入力してください");
+  if (!list.length) {
+    target.appendChild(buildEmpty(emptyText));
     return;
   }
 
-  persistTodos();
-  render();
-  closeModal();
-  showToast("Todoを更新しました");
+  list.forEach((todo) => {
+    target.appendChild(createTodoCard(todo));
+  });
 }
 
-function onDeleteFromModal() {
-  const id = el.editId.value;
-  if (!id) return;
+function renderEventSection(target, list, emptyText) {
+  target.innerHTML = "";
 
-  deleteTodo(id);
-  closeModal();
+  if (!list.length) {
+    target.appendChild(buildEmpty(emptyText));
+    return;
+  }
+
+  list.forEach((event) => {
+    target.appendChild(createEventCard(event));
+  });
 }
 
 function render() {
-  const filtered = getFilteredTodos();
-  renderStats();
-  renderEmpty(filtered);
-  el.todoGrid.innerHTML = filtered.map(createTodoCardHTML).join("");
+  const activeTodos = todos.filter((t) => !t.isDone);
+  const critical = activeTodos.filter((t) => classifyTodo(t, now) === "critical");
+  const next = activeTodos.filter((t) => classifyTodo(t, now) === "next");
+  const later = activeTodos.filter((t) => classifyTodo(t, now) === "later");
+
+  const todayEvents = events
+    .filter((e) => isSameDay(new Date(e.startsAt), now))
+    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+
+  els.criticalCount.textContent = String(critical.length);
+  els.openTodoCount.textContent = String(activeTodos.length);
+  els.todayEventCount.textContent = String(todayEvents.length);
+
+  els.criticalBadge.textContent = String(critical.length);
+  els.nextBadge.textContent = String(next.length);
+  els.laterBadge.textContent = String(later.length);
+  els.eventsBadge.textContent = String(todayEvents.length);
+
+  renderTodoSection(
+    els.criticalList,
+    critical,
+    "危険なタスクはありません。"
+  );
+  renderTodoSection(
+    els.nextList,
+    next,
+    "直近タスクはありません。"
+  );
+  renderTodoSection(
+    els.laterList,
+    later,
+    "後回しタスクはありません。"
+  );
+  renderEventSection(
+    els.eventList,
+    todayEvents,
+    "今日の予定はありません。"
+  );
 }
 
-function renderStats() {
-  const total = state.todos.length;
-  const done = state.todos.filter((t) => t.done).length;
-  const active = total - done;
+els.addButton.addEventListener("click", addQuickTodo);
 
-  el.totalCount.textContent = total;
-  el.activeCount.textContent = active;
-  el.doneCount.textContent = done;
-}
-
-function renderEmpty(list) {
-  el.emptyState.classList.toggle("hidden", list.length > 0);
-}
-
-function getFilteredTodos() {
-  let list = [...state.todos];
-
-  list.sort((a, b) => {
-    if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
-    return b.updatedAt - a.updatedAt;
-  });
-
-  if (state.filter === "active") {
-    list = list.filter((t) => !t.done);
-  } else if (state.filter === "done") {
-    list = list.filter((t) => t.done);
+els.quickInput.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    addQuickTodo();
   }
+});
 
-  if (state.search) {
-    list = list.filter((t) => {
-      const text = `${t.title} ${t.body}`.toLowerCase();
-      return text.includes(state.search);
-    });
-  }
-
-  return list;
-}
-
-function createTodoCardHTML(todo) {
-  const safeTitle = escapeHTML(todo.title);
-  const safeBody = escapeHTML(todo.body).replace(/\n/g, "<br>");
-  const dateText = formatDate(todo.updatedAt);
-
-  return `
-    <article class="todo-card ${todo.done ? "done" : ""}" data-id="${todo.id}" data-color="${todo.color}">
-      ${todo.pinned ? `<div class="todo-pin">📌</div>` : ""}
-      <div class="todo-top">
-        <button class="check-btn" type="button" data-action="toggle-done" aria-label="完了切替"></button>
-        <div class="todo-main">
-          <h3 class="todo-title">${safeTitle}</h3>
-          ${todo.body ? `<p class="todo-body">${safeBody}</p>` : ""}
-        </div>
-      </div>
-
-      <div class="todo-meta">
-        <span class="todo-date">${dateText}</span>
-        <div class="todo-actions">
-          <button class="card-btn ${todo.pinned ? "active" : ""}" type="button" data-action="toggle-pin" aria-label="ピン留め">
-            📌
-          </button>
-          <button class="card-btn" type="button" data-action="edit" aria-label="編集">
-            ✎
-          </button>
-          <button class="card-btn" type="button" data-action="delete" aria-label="削除">
-            🗑
-          </button>
-        </div>
-      </div>
-    </article>
-  `;
-}
-
-function persistTodos() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state.todos));
-}
-
-function loadTodos() {
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (!raw) {
-    state.todos = [
-      {
-        id: "sample-1",
-        title: "最初のTodoを確認する",
-        body: "このカードはサンプルです。完了、編集、ピン留め、削除を試せます。",
-        color: "blue",
-        done: false,
-        pinned: true,
-        createdAt: Date.now() - 1000 * 60 * 60 * 5,
-        updatedAt: Date.now() - 1000 * 60 * 60 * 2,
-      },
-      {
-        id: "sample-2",
-        title: "買い物メモ",
-        body: "牛乳\n卵\nコーヒー",
-        color: "yellow",
-        done: false,
-        pinned: false,
-        createdAt: Date.now() - 1000 * 60 * 60 * 24,
-        updatedAt: Date.now() - 1000 * 60 * 30,
-      },
-    ];
-    persistTodos();
-    return;
-  }
-
-  try {
-    state.todos = JSON.parse(raw);
-  } catch {
-    state.todos = [];
-  }
-}
-
-function loadTheme() {
-  const saved = localStorage.getItem(THEME_KEY);
-  const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-  const theme = saved || (prefersLight ? "light" : "dark");
-
-  document.body.classList.toggle("light", theme === "light");
-}
-
-function toggleTheme() {
-  const isLight = document.body.classList.toggle("light");
-  localStorage.setItem(THEME_KEY, isLight ? "light" : "dark");
-  showToast(isLight ? "ライトモードに切り替えました" : "ダークモードに切り替えました");
-}
-
-function updateColorSelection(container, color) {
-  [...container.querySelectorAll(".color-dot")].forEach((btn) => {
-    btn.classList.toggle("selected", btn.dataset.color === color);
-  });
-}
-
-function showToast(message) {
-  const toast = document.createElement("div");
-  toast.className = "toast";
-  toast.textContent = message;
-  el.toastContainer.appendChild(toast);
-
-  setTimeout(() => {
-    toast.classList.add("hide");
-    toast.addEventListener("animationend", () => toast.remove(), { once: true });
-  }, 2200);
-}
-
-function autoResizeTextarea(textarea) {
-  textarea.style.height = "auto";
-  textarea.style.height = `${textarea.scrollHeight}px`;
-}
-
-function formatDate(timestamp) {
-  const d = new Date(timestamp);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${y}/${m}/${day} ${hh}:${mm}`;
-}
-
-function escapeHTML(str) {
-  return str
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-init();
+render();
